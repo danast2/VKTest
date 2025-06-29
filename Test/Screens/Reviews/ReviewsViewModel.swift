@@ -6,10 +6,13 @@ final class ReviewsViewModel: NSObject {
     /// Замыкание, вызываемое при изменении `state`.
     var onStateChange: ((State) -> Void)?
 
-    private var state: State
+
     private let reviewsProvider: ReviewsProvider
     private let ratingRenderer: RatingRenderer
     private let decoder: JSONDecoder
+
+
+    private var state: State
 
     init(
         state: State = State(),
@@ -17,80 +20,80 @@ final class ReviewsViewModel: NSObject {
         ratingRenderer: RatingRenderer = RatingRenderer(),
         decoder: JSONDecoder = JSONDecoder()
     ) {
-        self.state = state
+        self.state          = state
         self.reviewsProvider = reviewsProvider
         self.ratingRenderer = ratingRenderer
-        self.decoder = decoder
+        self.decoder        = decoder
     }
-
 }
 
-// MARK: - Internal
-
+// MARK: - Internal API
 extension ReviewsViewModel {
 
     typealias State = ReviewsViewModelState
 
-    /// Метод получения отзывов.
+    /// Запрашиваем отзывы.
     func getReviews() {
         guard state.shouldLoad else { return }
         state.shouldLoad = false
         reviewsProvider.getReviews(offset: state.offset, completion: gotReviews)
     }
-
 }
 
-// MARK: - Private
-
+// MARK: - Private helpers
 private extension ReviewsViewModel {
 
-    /// Метод обработки получения отзывов.
+    enum Assets {
+        static let avatarPlaceholder: UIImage = {
+            UIImage(named: "l5w5aIHioYc") ??
+            UIImage(systemName: "person.crop.square")!
+        }()
+    }
+
+    // Получили данные с «сервера»
     func gotReviews(_ result: ReviewsProvider.GetReviewsResult) {
         do {
-            let data = try result.get()
+            let data    = try result.get()
             let reviews = try decoder.decode(Reviews.self, from: data)
-            state.items += reviews.items.map(makeReviewItem)
-            state.offset += state.limit
-            state.shouldLoad = state.offset < reviews.count
+
+            state.items      += reviews.items.map(makeReviewItem)
+            state.offset     += state.limit
+            state.shouldLoad  = state.offset < reviews.count
         } catch {
-            state.shouldLoad = true
+            state.shouldLoad  = true
         }
         onStateChange?(state)
     }
 
-    /// Метод, вызываемый при нажатии на кнопку "Показать полностью...".
-    /// Снимает ограничение на количество строк текста отзыва (раскрывает текст).
+    /// Раскрыть длинный текст «Показать полностью…».
     func showMoreReview(with id: UUID) {
         guard
             let index = state.items.firstIndex(where: { ($0 as? ReviewItem)?.id == id }),
-            var item = state.items[index] as? ReviewItem
+            var item  = state.items[index] as? ReviewItem
         else { return }
+
         item.maxLines = .zero
         state.items[index] = item
         onStateChange?(state)
     }
-
 }
 
-// MARK: - Items
+// MARK: - Item factory
 private extension ReviewsViewModel {
 
     typealias ReviewItem = ReviewCellConfig
 
     func makeReviewItem(_ review: Review) -> ReviewItem {
 
-        // 1. Аватар (плейсхолдер из Assets)
-        let avatar = UIImage(named: "avatar")
+        let avatar = Assets.avatarPlaceholder
 
-        // 2. Имя + рейтинг
         let username = "\(review.first_name) \(review.last_name)"
             .attributed(font: .username)
 
         let ratingImage = ratingRenderer.ratingImage(review.rating)
 
-        // 3. Основной текст и дата
         let reviewText = review.text.attributed(font: .text)
-        let created = review.created.attributed(font: .created, color: .created)
+        let created    = review.created.attributed(font: .created, color: .created)
 
         return ReviewItem(
             avatar: avatar,
@@ -102,6 +105,7 @@ private extension ReviewsViewModel {
         )
     }
 }
+
 
 // MARK: - UITableViewDataSource
 
