@@ -37,12 +37,14 @@ extension ReviewCellConfig: TableCellConfig {
     func update(cell: UITableViewCell) {
         guard let cell = cell as? ReviewCell else { return }
 
-        cell.avatarImageView.image = avatar
+        cell.avatarImageView.image        = avatar
         cell.usernameLabel.attributedText = username
-        cell.ratingImageView.image = ratingImage
+        cell.ratingImageView.image        = ratingImage
         cell.reviewTextLabel.attributedText = reviewText
-        cell.reviewTextLabel.numberOfLines = maxLines
-        cell.createdLabel.attributedText = created
+        cell.reviewTextLabel.numberOfLines  = maxLines
+        cell.createdLabel.attributedText  = created
+
+        cell.showMoreButton.isHidden = maxLines == .zero
 
         cell.config = self
     }
@@ -104,7 +106,6 @@ final class ReviewCell: UITableViewCell {
         ratingImageView.image = nil
         reviewTextLabel.attributedText = nil
         createdLabel.attributedText = nil
-        showMoreButton.removeTarget(nil, action: nil, for: .allEvents)
     }
 }
 
@@ -149,7 +150,7 @@ private extension ReviewCell {
         contentView.addSubview(createdLabel)
     }
 
-    func setupShowMore() {
+    private func setupShowMore() {
         contentView.addSubview(showMoreButton)
         showMoreButton.contentVerticalAlignment = .fill
         showMoreButton.setAttributedTitle(Config.showMoreText, for: .normal)
