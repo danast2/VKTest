@@ -47,39 +47,42 @@ private extension ReviewsViewModel {
     }
 
     private func gotReviews(_ result: ReviewsProvider.GetReviewsResult) {
-        defer { onStateChange?(state) }        // всегда сообщаем UI-слою
+        defer { onStateChange?(state) }
 
-        guard case let .success(data) = result else {
-            state.shouldLoad = true            // повторить попытку позже
+        guard
+            case let .success(data) = result,
+            let response = try? decoder.decode(Reviews.self, from: data)
+        else {
+            state.shouldLoad = true
             return
         }
 
-        do {
-            let response = try decoder.decode(Reviews.self, from: data)
+        // -------- пагинация, как раньше --------
+        let total = response.items.count
+        let start = state.offset
+        let end   = min(start + state.limit, total)
+        guard start < end else {
+            state.shouldLoad = false
+            return
+        }
 
-            // 1. границы «страницы»
-            let total  = response.items.count          // фактический размер файла
-            let start  = state.offset
-            let end    = min(start + state.limit, total)
+        state.items += response.items[start..<end].map(makeReviewItem)
+        state.offset     = end
+        state.shouldLoad = end < total
 
-            // если дошли до конца – больше нечего грузить
-            guard start < end else {
-                state.shouldLoad = false
-                return
-            }
+        // -------- count-item --------
+        if !state.shouldLoad {                    // дошли до конца списка
+            // 1. убираем старый (если перезагружали данные)
+            state.items.removeAll { $0 is ReviewCountCellConfig }
 
-            // 2. добавляем ТОЛЬКО новые элементы
-            let pageItems = response.items[start..<end]
-            state.items += pageItems.map(makeReviewItem)
+            // 2. вставляем новый в самый конец
+            let countText = "\(response.count) отзывов"
+                .attributed(font: .reviewCount, color: .reviewCount)
 
-            // 3. двигаем курсор и флаг
-            state.offset     = end
-            state.shouldLoad = end < total            // true → ещё есть что грузить
-
-        } catch {
-            state.shouldLoad = true                   // на ошибке дайте попробовать снова
+            state.items.append(ReviewCountCellConfig(text: countText))
         }
     }
+
 
     func showMoreReview(with id: UUID) {
         guard
