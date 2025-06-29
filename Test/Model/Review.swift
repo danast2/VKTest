@@ -14,4 +14,6 @@ struct Review: Decodable {
     let text: String
     /// Время создания отзыва.
     let created: String
+
+    let photo_asset_names: [String]?
 }
