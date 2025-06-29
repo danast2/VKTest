@@ -46,20 +46,39 @@ private extension ReviewsViewModel {
             UIImage(systemName: "person.crop.square")!
     }
 
-    func gotReviews(_ result: ReviewsProvider.GetReviewsResult) {
-        defer { onStateChange?(state) }
+    private func gotReviews(_ result: ReviewsProvider.GetReviewsResult) {
+        defer { onStateChange?(state) }        // всегда сообщаем UI-слою
 
-        guard
-            case let .success(data) = result,
-            let reviews = try? decoder.decode(Reviews.self, from: data)
-        else {
-            state.shouldLoad = true
+        guard case let .success(data) = result else {
+            state.shouldLoad = true            // повторить попытку позже
             return
         }
 
-        state.items      += reviews.items.map(makeReviewItem)
-        state.offset     += state.limit
-        state.shouldLoad  = state.offset < reviews.count
+        do {
+            let response = try decoder.decode(Reviews.self, from: data)
+
+            // 1. границы «страницы»
+            let total  = response.items.count          // фактический размер файла
+            let start  = state.offset
+            let end    = min(start + state.limit, total)
+
+            // если дошли до конца – больше нечего грузить
+            guard start < end else {
+                state.shouldLoad = false
+                return
+            }
+
+            // 2. добавляем ТОЛЬКО новые элементы
+            let pageItems = response.items[start..<end]
+            state.items += pageItems.map(makeReviewItem)
+
+            // 3. двигаем курсор и флаг
+            state.offset     = end
+            state.shouldLoad = end < total            // true → ещё есть что грузить
+
+        } catch {
+            state.shouldLoad = true                   // на ошибке дайте попробовать снова
+        }
     }
 
     func showMoreReview(with id: UUID) {
