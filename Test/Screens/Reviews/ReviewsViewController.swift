@@ -23,6 +23,15 @@ final class ReviewsViewController: UIViewController {
         super.viewDidLoad()
         setupViewModel()
         viewModel.getReviews()
+        reviewsView.refreshControl.addTarget(
+            self,
+            action: #selector(didPullToRefresh),
+            for: .valueChanged
+        )
+    }
+
+    @objc private func didPullToRefresh() {
+        viewModel.reloadFromScratch()
     }
 
 }
@@ -39,8 +48,11 @@ private extension ReviewsViewController {
     }
 
     func setupViewModel() {
-        viewModel.onStateChange = { [weak reviewsView] _ in
-            reviewsView?.tableView.reloadData()
+        viewModel.onStateChange = { [weak self] _ in
+            self?.reviewsView.tableView.reloadData()
+            if self?.reviewsView.refreshControl.isRefreshing == true {
+                self?.reviewsView.refreshControl.endRefreshing()   
+            }
         }
     }
 

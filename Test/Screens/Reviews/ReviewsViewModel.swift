@@ -27,6 +27,15 @@ final class ReviewsViewModel: NSObject {
     }
 }
 
+extension ReviewsViewModel {
+/// Перезагрузка с нуля (для Pull-to-Refresh)
+    func reloadFromScratch() {
+        state = State()          // сбрасываем оффсет/флаги/элементы
+        onStateChange?(state)    // очистить таблицу мгновенно
+        getReviews()             // запрашиваем первую страницу
+    }
+}
+
 // MARK: - Public API
 extension ReviewsViewModel {
 
