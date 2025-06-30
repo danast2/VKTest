@@ -11,7 +11,7 @@ final class ReviewsViewModel: NSObject {
     private let ratingRenderer:  RatingRenderer
     private let decoder:         JSONDecoder
 
-    private var state: State
+    private(set) var state: State
 
     // MARK: - Init
     init(

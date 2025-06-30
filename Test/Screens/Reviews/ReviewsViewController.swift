@@ -4,6 +4,8 @@ final class ReviewsViewController: UIViewController {
 
     private lazy var reviewsView = makeReviewsView()
     private let viewModel: ReviewsViewModel
+    private let loader = LoadingIndicatorView(frame: CGRect(origin: .zero,
+                                                                size: CGSize(width: 40, height: 40)))
 
     init(viewModel: ReviewsViewModel) {
         self.viewModel = viewModel
@@ -17,11 +19,13 @@ final class ReviewsViewController: UIViewController {
     override func loadView() {
         view = reviewsView
         title = "Отзывы"
+        view.addAndCenter(loader)
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         setupViewModel()
+        loader.start()
         viewModel.getReviews()
         reviewsView.refreshControl.addTarget(
             self,
@@ -49,9 +53,14 @@ private extension ReviewsViewController {
 
     func setupViewModel() {
         viewModel.onStateChange = { [weak self] _ in
-            self?.reviewsView.tableView.reloadData()
-            if self?.reviewsView.refreshControl.isRefreshing == true {
-                self?.reviewsView.refreshControl.endRefreshing()   
+            guard let self else { return }
+            self.reviewsView.tableView.reloadData()
+
+            if !self.loader.isHidden, !self.viewModel.state.items.isEmpty {
+                self.loader.stop()
+            }
+            if self.reviewsView.refreshControl.isRefreshing {
+                self.reviewsView.refreshControl.endRefreshing()
             }
         }
     }
