@@ -1,9 +1,9 @@
 import UIKit
 
-/// Класс, описывающий бизнес-логику экрана отзывов.
+// MARK: - View-model
 final class ReviewsViewModel: NSObject {
 
-    // MARK: - Aliases & State
+    // MARK: Aliases & State
     typealias State = ReviewsViewModelState
     var onStateChange: ((State) -> Void)?
 
@@ -13,11 +13,11 @@ final class ReviewsViewModel: NSObject {
 
     private(set) var state: State
 
-    // MARK: - Init
+    // MARK: Init
     init(
         state: State = State(),
         reviewsProvider: ReviewsProvider = ReviewsProvider(),
-        ratingRenderer: RatingRenderer   = RatingRenderer(),
+        ratingRenderer:  RatingRenderer  = RatingRenderer(),
         decoder: JSONDecoder            = JSONDecoder()
     ) {
         self.state           = state
@@ -27,19 +27,15 @@ final class ReviewsViewModel: NSObject {
     }
 }
 
+// MARK: – Public API
 extension ReviewsViewModel {
-/// Перезагрузка с нуля (для Pull-to-Refresh)
+
     func reloadFromScratch() {
-        state = State()          // сбрасываем оффсет/флаги/элементы
-        onStateChange?(state)    // очистить таблицу мгновенно
-        getReviews()             // запрашиваем первую страницу
+        state = State()
+        onStateChange?(state)
+        getReviews()
     }
-}
 
-// MARK: - Public API
-extension ReviewsViewModel {
-
-    /// Запрашиваем отзывы.
     func getReviews() {
         guard state.shouldLoad else { return }
         state.shouldLoad = false
@@ -47,16 +43,14 @@ extension ReviewsViewModel {
     }
 }
 
-// MARK: - Private
+// MARK: – Private helpers
 private extension ReviewsViewModel {
 
     enum Assets {
-        /// Плейсхолдер-аватар.
         static let avatar = UIImage(named: "l5w5aIHioYc")
                        ??  UIImage(systemName: "person.crop.square")!
     }
 
-    // ───────────────────────────────────────────────────────────────────── gotReviews
     func gotReviews(_ result: ReviewsProvider.GetReviewsResult) {
         defer { onStateChange?(state) }
 
@@ -68,7 +62,6 @@ private extension ReviewsViewModel {
             return
         }
 
-        // пагинация
         let total = response.items.count
         let start = state.offset
         let end   = min(start + state.limit, total)
@@ -77,11 +70,10 @@ private extension ReviewsViewModel {
             return
         }
 
-        state.items      += response.items[start..<end].map(makeReviewItem)
-        state.offset      = end
-        state.shouldLoad  = end < total
+        state.items     += response.items[start..<end].map(makeReviewItem)
+        state.offset     = end
+        state.shouldLoad = end < total
 
-        // финальная ячейка-счётчик
         if !state.shouldLoad {
             state.items.removeAll { $0 is ReviewCountCellConfig }
             let countText = "\(response.count) отзывов"
@@ -90,7 +82,6 @@ private extension ReviewsViewModel {
         }
     }
 
-    // раскрываем текст отзыва
     func showMoreReview(with id: UUID) {
         guard
             let idx  = state.items.firstIndex(where: { ($0 as? ReviewItem)?.id == id }),
@@ -103,7 +94,7 @@ private extension ReviewsViewModel {
     }
 }
 
-// MARK: - Item factory
+// MARK: – Item factory
 private extension ReviewsViewModel {
 
     typealias ReviewItem = ReviewCellConfig
@@ -113,59 +104,45 @@ private extension ReviewsViewModel {
         let username = "\(review.first_name) \(review.last_name)"
             .attributed(font: .username)
 
-        // картинки из Assets
-        let photos = review.photo_asset_names?
-            .compactMap { UIImage(named: $0) }
-            .prefix(3) ?? []
-
-        // ⚠️ порядок аргументов должен совпадать с memberwise-инициализатором
         return ReviewItem(
-            avatar: Assets.avatar,
-            username: username,
+            avatarURL:   review.avatar_url,
+            username:    username,
             ratingImage: ratingRenderer.ratingImage(review.rating),
-            reviewText: review.text.attributed(font: .text),
-            /* maxLines omitted → default 3 */
-            created: review.created.attributed(font: .created, color: .created),
-            photos: Array(photos),
+            reviewText:  review.text.attributed(font: .text),
+            maxLines:    3,  
+            created:     review.created.attributed(font: .created, color: .created),
+            photoURLs:   Array((review.photo_urls ?? []).prefix(5)),
             onTapShowMore: { [weak self] id in self?.showMoreReview(with: id) }
         )
     }
 }
 
-// MARK: - UITableViewDataSource
-extension ReviewsViewModel: UITableViewDataSource {
+// MARK: – UITableViewDataSource / Delegate
+extension ReviewsViewModel: UITableViewDataSource, UITableViewDelegate {
 
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+    func tableView(_ tv: UITableView, numberOfRowsInSection s: Int) -> Int {
         state.items.count
     }
 
     func tableView(
-        _ tableView: UITableView,
-        cellForRowAt indexPath: IndexPath
+        _ tv: UITableView,
+        cellForRowAt ip: IndexPath
     ) -> UITableViewCell {
-        let cfg  = state.items[indexPath.row]
-        let cell = tableView.dequeueReusableCell(withIdentifier: cfg.reuseId, for: indexPath)
+        let cfg  = state.items[ip.row]
+        let cell = tv.dequeueReusableCell(withIdentifier: cfg.reuseId, for: ip)
         cfg.update(cell: cell)
         return cell
     }
-}
 
-// MARK: - UITableViewDelegate
-extension ReviewsViewModel: UITableViewDelegate {
-
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        state.items[indexPath.row].height(with: tableView.bounds.size)
+    func tableView(_ tv: UITableView, heightForRowAt ip: IndexPath) -> CGFloat {
+        state.items[ip.row].height(with: tv.bounds.size)
     }
 
     func scrollViewWillEndDragging(
-        _ scrollView: UIScrollView,
-        withVelocity velocity: CGPoint,
-        targetContentOffset: UnsafeMutablePointer<CGPoint>
+        _ sv: UIScrollView, withVelocity _: CGPoint,
+        targetContentOffset p: UnsafeMutablePointer<CGPoint>
     ) {
-        if shouldLoadNextPage(
-            scrollView: scrollView,
-            targetOffsetY: targetContentOffset.pointee.y
-        ) {
+        if shouldLoadNextPage(scrollView: sv, targetOffsetY: p.pointee.y) {
             getReviews()
         }
     }
@@ -175,10 +152,9 @@ extension ReviewsViewModel: UITableViewDelegate {
         targetOffsetY: CGFloat,
         screensToLoadNextPage: Double = 2.5
     ) -> Bool {
-        let viewH  = scrollView.bounds.height
-        let contH  = scrollView.contentSize.height
-        let trig   = viewH * screensToLoadNextPage
-        let remain = contH - viewH - targetOffsetY
-        return remain <= trig
+        let remain = scrollView.contentSize.height
+                  - scrollView.bounds.height
+                  - targetOffsetY
+        return remain <= scrollView.bounds.height * screensToLoadNextPage
     }
 }

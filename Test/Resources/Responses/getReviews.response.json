@@ -2,12 +2,19 @@
     "count": 127,
     "items": [
         {
-            "first_name": "Иван",
-            "last_name": "Петров",
-            "rating": 5,
-            "photo_asset_names": ["IMG_0001", "IMG_0002", "IMG_0006"],
-            "text": "Кроссовки хорошие. Удобные. Как по мне сшиты.",
-            "created": "1 час назад"
+          "first_name": "Иван",
+          "last_name":  "Петров",
+          "rating": 5,
+          "avatar_url": "https://picsum.photos/seed/a/72",
+          "photo_urls": [
+            "https://picsum.photos/seed/aa/300",
+            "https://picsum.photos/seed/bb/300",
+            "https://picsum.photos/seed/cc/300",
+            "https://picsum.photos/seed/dd/300",
+            "https://picsum.photos/seed/ee/300"
+          ],
+          "text": "Кроссовки хорошие. Удобные. Как по мне сшиты.",
+          "created": "1 час назад"
         },
         {
             "first_name": "Екатерина",

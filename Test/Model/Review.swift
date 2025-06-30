@@ -1,19 +1,14 @@
 import Foundation
 
-/// Модель отзыва.
+/// Модель отзыва (JSON).
 struct Review: Decodable {
 
-    /// Имя и фамилия пользователя.
     let first_name: String
-    let last_name: String
+    let last_name:  String
+    let rating:     Int
+    let text:       String
+    let created:    String
+    let avatar_url: URL?
+    let photo_urls: [URL]?
 
-    /// Оценка 1…5.
-    let rating: Int
-
-    /// Текст отзыва.
-    let text: String
-    /// Время создания отзыва.
-    let created: String
-
-    let photo_asset_names: [String]?
 }

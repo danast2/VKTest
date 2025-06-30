@@ -32,7 +32,6 @@ extension ReviewsProvider {
 
             do {
                 let data = try Data(contentsOf: url)
-                // ⬅️ Возвращаем результат НА ГЛАВНЫЙ ПОТОК
                 DispatchQueue.main.async { completion(.success(data)) }
             } catch {
                 DispatchQueue.main.async { completion(.failure(.badData(error))) }

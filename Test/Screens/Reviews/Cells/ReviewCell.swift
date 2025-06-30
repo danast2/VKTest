@@ -1,63 +1,58 @@
 import UIKit
 
-/// Конфигурация ячейки. Содержит данные для отображения в ячейке.
-struct ReviewCellConfig {
+struct ReviewCellConfig: TableCellConfig {
 
-    // MARK: Public — данные
-
-    /// Уникальный идентификатор конфигурации.
-    let id = UUID()
-
-    /// Аватар пользователя.
-    let avatar: UIImage?
-    /// Имя пользователя.
-    let username: NSAttributedString
-    /// Картинка рейтинга.
+    // MARK: – публичные данные
+    let id         = UUID()
+    let avatarURL: URL?
+    let username:  NSAttributedString
     let ratingImage: UIImage
-    /// Текст отзыва.
     let reviewText: NSAttributedString
-    /// Максимальное количество строк текста (0 — без ограничений).
-    var maxLines = 3
-    /// Время создания.
-    let created: NSAttributedString
-
-    let photos: [UIImage]
-
-    /// Callback «Показать полностью…».
+    var maxLines   = 3
+    let created:   NSAttributedString
+    let photoURLs: [URL]          // 0…5
     let onTapShowMore: (UUID) -> Void
 
-    // MARK: Private — layout-кэш
-
+    // MARK: – кеш лэйаута
     fileprivate let layout = ReviewCellLayout()
-}
 
-// MARK: - TableCellConfig
-extension ReviewCellConfig: TableCellConfig {
-
+    // MARK: – TableCellConfig
     static let reuseId = String(describing: ReviewCellConfig.self)
-
 
     func update(cell: UITableViewCell) {
         guard let cell = cell as? ReviewCell else { return }
 
-        for (idx, imgView) in cell.photoImageViews.enumerated() {
-            if idx < photos.count {
-                imgView.isHidden = false              // ✅ NEW
-                imgView.image    = photos[idx]        // 🔄 EDIT
-            } else {
-                imgView.isHidden = true               // ✅ NEW
-                imgView.image    = nil
+        // ─────── Аватар ───────
+        if let url = avatarURL {
+            ImageLoader.shared.load(url) { [weak cell] img in
+                guard cell?.config?.id == self.id else { return }
+                cell?.avatarImageView.image = img ?? Self.avatarPlaceholder
             }
+        } else {
+            cell.avatarImageView.image = Self.avatarPlaceholder
         }
 
-        cell.avatarImageView.image        = avatar
-        cell.usernameLabel.attributedText = username
-        cell.ratingImageView.image        = ratingImage
+        cell.usernameLabel.attributedText   = username
+        cell.ratingImageView.image          = ratingImage
         cell.reviewTextLabel.attributedText = reviewText
         cell.reviewTextLabel.numberOfLines  = maxLines
-        cell.createdLabel.attributedText  = created
+        cell.createdLabel.attributedText    = created
+        cell.showMoreButton.isHidden        = maxLines == .zero
 
-        cell.showMoreButton.isHidden = maxLines == .zero
+        // ─────── Фото ───────
+        for (idx, iv) in cell.photoImageViews.enumerated() {
+            if idx < photoURLs.count {
+                iv.isHidden = false
+                let url = photoURLs[idx]
+                ImageLoader.shared.load(url) { [weak cell] img in
+                    guard cell?.config?.id == self.id else { return }
+                    cell?.photoImageViews[idx].image = img ?? Self.photoPlaceholder
+                }
+            } else {
+                iv.isHidden = true
+                iv.image    = nil
+            }
+        }
 
         cell.config = self
     }
@@ -67,10 +62,15 @@ extension ReviewCellConfig: TableCellConfig {
     }
 }
 
-// MARK: - Private static
+// MARK: – static helpers
 private extension ReviewCellConfig {
     static let showMoreText = "Показать полностью..."
         .attributed(font: .showMore, color: .showMore)
+
+    static let avatarPlaceholder = UIImage(named: "l5w5aIHioYc")
+                           ??    UIImage(systemName: "person.circle")!
+
+    static let photoPlaceholder  = UIImage(systemName: "photo")
 }
 
 
@@ -144,7 +144,7 @@ private extension ReviewCell {
     }
 
     private func setupPhotos() {
-        (0..<3).forEach { _ in
+        (0..<5).forEach { _ in
             let iv = UIImageView()
             iv.layer.cornerRadius = Layout.photoCornerRadius
             iv.clipsToBounds = true
@@ -262,8 +262,8 @@ final class ReviewCellLayout {
         var maxY = max(avatarFrame.maxY, ratingImageViewFrame.maxY) + ratingToTextSpacing
 
         // 5. Фото (если есть) --------------------------------------------------
-        if !config.photos.isEmpty {
-            photoFrames = config.photos.enumerated().map { idx, _ in
+        if !config.photoURLs.isEmpty {
+            photoFrames = config.photoURLs.enumerated().map { idx, _ in
                 CGRect(
                     x: insets.left + CGFloat(idx)*(Self.photoSize.width + photosSpacing),
                     y: maxY,
@@ -271,7 +271,7 @@ final class ReviewCellLayout {
                     height: Self.photoSize.height
                 )
             }
-            maxY = maxY + Self.photoSize.height + photosToTextSpacing
+            maxY += Self.photoSize.height + photosToTextSpacing
         } else {
             photoFrames = []
         }
